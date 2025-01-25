@@ -1,7 +1,5 @@
 %% Kun development. Må gjøre om denne til en funksjon tenker jeg.
 
-%% Denne linjen da?
-
 eta = load ('..\data\ceiling_vid_mobile.mat');
 eta = eta.grayscaleVideo_short;
 %%
