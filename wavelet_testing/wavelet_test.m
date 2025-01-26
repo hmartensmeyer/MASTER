@@ -177,7 +177,7 @@ end
 %% Display the vortices over time
 
 for t = 1:1000
-    imagesc(filtered_snapshots(:, :, t));
+    imagesc(filtered_dimples(:, :, t));
     colormap 'gray';
     title('Timestep: ', t)
     pause(0.1);
@@ -216,36 +216,42 @@ for t = 1:num_timesteps
         % Assign labels to structures based on line-based distance to previous frame
         if t > 1 && ~isempty(centroid_positions{t-1})
             prev_centroids = centroid_positions{t-1};
+            prev_labels = structure_labels{t-1};
             structure_labels{t} = zeros(size(centroids, 1), 1);
 
-            % Check each centroid in the current frame
+            % Create a distance matrix between current and previous centroids
+            distances = pdist2(centroids, prev_centroids);
+
+            % Track matched previous centroids
+            matched_prev = false(size(prev_centroids, 1), 1);  
+            next_new_label = max(prev_labels, [], 'omitnan') + 1;  % Start new labels from the max
+
+            % Match centroids using a greedy algorithm
             for i = 1:size(centroids, 1)
-                matched = false;
-                for j = 1:size(prev_centroids, 1)
-                    % Calculate line length between current and previous centroids
-                    distance = norm(centroids(i, :) - prev_centroids(j, :));
+                % Find the closest previous centroid
+                [min_distance, closest_idx] = min(distances(i, :));
 
-                    % If distance is less than max_distance, match the structure
-                    if distance < max_distance
-                        structure_labels{t}(i) = structure_labels{t-1}(j);  % Same structure
-                        matched = true;
-                        break;
-                    end
-                end
-
-                % Assign a new label if no match is found
-                if ~matched
-                    structure_labels{t}(i) = max(structure_labels{t-1}, [], 'omitnan') + 1;
+                if min_distance < max_distance && ~matched_prev(closest_idx)
+                    % Assign the same label as the closest previous centroid
+                    structure_labels{t}(i) = prev_labels(closest_idx);
+                    matched_prev(closest_idx) = true;  % Mark this previous centroid as matched
+                else
+                    % Assign a unique new label for unmatched centroids
+                    structure_labels{t}(i) = next_new_label;
+                    next_new_label = next_new_label + 1;  % Increment label for next new structure
                 end
             end
         else
-            structure_labels{t} = (1:size(centroids, 1))';  % Assign new labels for first frame
+            % Assign new unique labels for the first frame
+            structure_labels{t} = (1:size(centroids, 1))';
         end
     else
         centroid_positions{t} = [];
         structure_labels{t} = [];
     end
 end
+
+
 
 %% Visualization of tracking over time
 figure;
