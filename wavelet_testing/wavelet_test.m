@@ -117,7 +117,7 @@ end
 %% Test for time series
 
 % Parameters
-timesteps = 1:1000;  % Define the range of timesteps (100 timesteps)
+timesteps = 1:100;  % Define the range of timesteps (100 timesteps)
 scales = 1:10;  % Adjust scale range based on feature size
 selected_scale = 7;  % Scale index to use
 W_thr = 0.2;  % Threshold for wavelet coefficients
@@ -127,8 +127,10 @@ solidity_threshold = 0.6;
 
 % Preallocate array for filtered snapshots
 [x_dim, y_dim] = size(eta(:, :, 1));  % Dimensions of each snapshot
-all_structures = zeros(x_dim, y_dim, length(timesteps));
-filtered_snapshots = zeros(x_dim, y_dim, length(timesteps));  % 3D array to store results
+original_flow = zeros(x_dim, y_dim, length(timesteps));
+wavelet_coefficients_full = zeros(x_dim, y_dim, length(timesteps));
+filtered_all_structures = zeros(x_dim, y_dim, length(timesteps));
+filtered_dimples = zeros(x_dim, y_dim, length(timesteps));  % 3D array to store results
 
 % Loop through each timestep
 for t_index = 1:length(timesteps)
@@ -163,8 +165,10 @@ for t_index = 1:length(timesteps)
     %filtered_by_eccentricity = 1 - eccentric_regions; %binary version
 
     % Save the filtered snapshot
-    all_structures(:, :, t_index) = filtered_coefficients;
-    filtered_snapshots(:, :, t_index) = filtered_by_eccentricity;
+    original_flow(:, :, t_index) = snapshot;
+    wavelet_coefficients_full(:, :, t_index) = wavelet_coefficients;
+    filtered_all_structures(:, :, t_index) = filtered_coefficients;
+    filtered_dimples(:, :, t_index) = filtered_by_eccentricity;
 end
 
 % Save the filtered snapshots to a MAT file
@@ -187,7 +191,7 @@ end
 
 %% Track filtered regions using line-based distance approach
 % Parameters for tracking
-num_timesteps = size(filtered_snapshots, 3);
+num_timesteps = size(filtered_dimples, 3);
 centroid_positions = cell(num_timesteps, 1);  % Store centroids for each timestep
 structure_labels = cell(num_timesteps, 1);   % Store region labels for tracking
 max_distance = 15;  % Maximum distance to associate centroids between frames
@@ -196,7 +200,7 @@ max_distance = 15;  % Maximum distance to associate centroids between frames
 for t = 1:num_timesteps
     disp(t)
     % Get the binary mask for the current timestep
-    binary_mask = filtered_snapshots(:, :, t) > 0;
+    binary_mask = filtered_dimples(:, :, t) > 0;
 
     % Label connected components in the binary mask
     connected_components = bwconncomp(binary_mask);
@@ -243,39 +247,39 @@ for t = 1:num_timesteps
     end
 end
 
-% %% Visualization of tracking over time
-% figure;
-% for t = 1:num_timesteps
-%     % Display the filtered structure for the current timestep
-%     subplot(1, 1, 1);
-%     imagesc(filtered_snapshots(:, :, t));
-%     colormap('gray');
-%     hold on;
-% 
-%     % Plot centroids with unique colors for tracked structures
-%     if ~isempty(centroid_positions{t})
-%         for i = 1:size(centroid_positions{t}, 1)
-%             label = structure_labels{t}(i);
-%             color = lines(max(cellfun(@max, structure_labels)));  % Generate unique colors
-%             scatter(centroid_positions{t}(i, 1), centroid_positions{t}(i, 2), ...
-%                 20, color(label, :), 'filled');  % Smaller markers
-%         end
-%     end
-% 
-%     title(sprintf('Timestep: %d', t));
-%     xlabel('X Coordinate');
-%     ylabel('Y Coordinate');
-%     hold off;
-%     pause(0.41);  % Pause for visualization
-% end
+%% Visualization of tracking over time
+figure;
+for t = 1:num_timesteps
+    % Display the filtered structure for the current timestep
+    subplot(1, 1, 1);
+    imagesc(filtered_dimples(:, :, t));
+    colormap('gray');
+    hold on;
+
+    % Plot centroids with unique colors for tracked structures
+    if ~isempty(centroid_positions{t})
+        for i = 1:size(centroid_positions{t}, 1)
+            label = structure_labels{t}(i);
+            color = lines(max(cellfun(@max, structure_labels)));  % Generate unique colors
+            scatter(centroid_positions{t}(i, 1), centroid_positions{t}(i, 2), ...
+                20, color(label, :), 'filled');  % Smaller markers
+        end
+    end
+
+    title(sprintf('Timestep: %d', t));
+    xlabel('X Coordinate');
+    ylabel('Y Coordinate');
+    hold off;
+    pause(0.1);  % Pause for visualization
+end
 
 %% Visualize structures as small dots at each timestep
 % Initialize figure
 figure('Name', 'Structure Tracking with Dots', 'Position', [100, 100, 800, 600]);
 hold on;
 axis equal;
-xlim([1, size(filtered_snapshots, 2)]);
-ylim([1, size(filtered_snapshots, 1)]);
+xlim([1, size(filtered_dimples, 2)]);
+ylim([1, size(filtered_dimples, 1)]);
 title('Tracked Structures Over Time');
 xlabel('X Coordinate');
 ylabel('Y Coordinate');
@@ -286,7 +290,7 @@ num_structures = max(cellfun(@max, structure_labels));
 colors = lines(num_structures);
 
 % Loop through timesteps to plot dots for structures
-for t = 1:num_timesteps
+for t = 1:100
     disp(['Processing timestep: ', num2str(t)]);  % Debug output
 
     % Get centroids and labels for the current frame
@@ -329,7 +333,7 @@ end
 
 
 %% Visualize a single structure and its active timesteps
-structure_to_show = 536;  % Specify the structure label to visualize
+structure_to_show = 92;  % Specify the structure label to visualize
 
 % Initialize figure for visualization
 figure('Name', sprintf('Structure %d Visualization', structure_to_show), 'Position', [100, 100, 800, 600]);
@@ -345,7 +349,7 @@ for t = 1:num_timesteps
             active_timesteps = [active_timesteps, t];
 
             % Find the connected component for this structure
-            binary_mask = filtered_snapshots(:, :, t) > 0;
+            binary_mask = filtered_dimples(:, :, t) > 0;
             connected_components = bwconncomp(binary_mask);
             structure_idx = find(structure_labels{t} == structure_to_show, 1);
 
@@ -382,8 +386,8 @@ valid_structures = find(structure_lifetimes >= lifetime_threshold);
 figure('Name', 'Filtered Structures Over Time', 'Position', [100, 100, 800, 600]);
 hold on;
 axis equal;
-xlim([1, size(filtered_snapshots, 2)]);
-ylim([1, size(filtered_snapshots, 1)]);
+xlim([1, size(filtered_dimples, 2)]);
+ylim([1, size(filtered_dimples, 1)]);
 title('Filtered Structures Over Time');
 xlabel('X Coordinate');
 ylabel('Y Coordinate');
@@ -395,7 +399,7 @@ colors = lines(length(valid_structures));
 % Loop through timesteps to plot valid structures
 for t = 1:num_timesteps
     % Display the snapshot as background
-    imagesc(filtered_snapshots(:, :, t));
+    imagesc(filtered_dimples(:, :, t));
     hold on;
 
     % Get centroids and labels for the current frame
