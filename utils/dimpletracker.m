@@ -1,4 +1,4 @@
-function [centroid_positions, structure_labels, structure_lifetimes, num_structures] = dimpletracker(filtered_dimples, max_distance)
+function [centroid_positions, structure_labels, structure_lifetimes, num_structures, num_timesteps] = dimpletracker(filtered_dimples, max_distance)
 % DIMPLE_TRACKER - Track filtered regions using a line-based distance approach
 %
 %   Input:
