@@ -1,5 +1,3 @@
-%% Line test
-
 % Import functions
 addpath '../utils/'
 
