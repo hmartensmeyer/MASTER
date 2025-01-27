@@ -8,7 +8,7 @@ t_index = 145;
 snapshot = eta(:, :, t_index);
 
 % Perform 2D continuous wavelet transform with the Mexican hat wavelet
-scales = 1:10;  % Adjust scale range based on feature size
+scales = 1:15;  % Adjust scale range based on feature size
 cwt_result = cwtft2(snapshot, 'Wavelet', 'mexh', 'Scales', scales);
 
 % Extract wavelet coefficients at a specific scale
@@ -42,39 +42,50 @@ filtered_by_eccentricity = wavelet_coefficients .* eccentric_regions;
 %filtered_by_eccentricity = 1 - eccentric_regions; %binary version
 
 % Plot original surface elevation
-figure('Name', 'Wavelet Analysis', 'Position', [100, 100, 1000, 650], Colormap=gray);
+hfig = figure('Name', 'Wavelet Analysis', Colormap=gray);
+
+t = tiledlayout(2, 2, "TileSpacing","compact","Padding","compact");
 
 % Original surface elevation
-subplot(2, 2, 1);
+%subplot(2, 2, 1);
+nexttile;
 imagesc(snapshot);
-title(sprintf('Surface Elevation at t = %d', t_index));
-xlabel('X Coordinate');
-ylabel('Y Coordinate');
+title(sprintf('Grayscale ceiling at t = %d', t_index));
+xlabel('X');
+ylabel('Y');
+set(gca, 'XTickLabel', [], 'YTickLabel', []);
 colorbar;
 
 % Wavelet coefficients
-subplot(2, 2, 2);
+%subplot(2, 2, 2);
+nexttile;
 imagesc(wavelet_coefficients);
-title(sprintf('Wavelet Coefficients (Scale %d)', scales(selected_scale)));
-xlabel('X Coordinate');
-ylabel('Y Coordinate');
+title(sprintf('Wavelet coefficients (Scale %d)', scales(selected_scale)));
+xlabel('X');
+ylabel('Y');
+set(gca, 'XTickLabel', [], 'YTickLabel', []);
 colorbar;
 
 % Visualization of filtered coefficients
-subplot(2, 2, 3);
+%subplot(2, 2, 3);
+nexttile;
 imagesc(filtered_coefficients);
-title('Filtered Wavelet Coefficients (W < W_{thr})');
-xlabel('X Coordinate');
-ylabel('Y Coordinate');
+title('Filtered wavelet coefficients ($W > W_{thr}$)');
+xlabel('X');
+ylabel('Y');
+set(gca, 'XTickLabel', [], 'YTickLabel', []);
 colorbar;
 
 % Visualization of the filtered coefficients
-subplot(2, 2, 4);
+%subplot(2, 2, 4);
+nexttile;
 imagesc(filtered_by_eccentricity);
-title('Filtered Coefficients (Eccentricity < 0.85)');
-xlabel('X Coordinate');
-ylabel('Y Coordinate');
+title('Filtered (Eccentricity $<$ 0.85)');
+xlabel('X');
+ylabel('Y');
+set(gca, 'XTickLabel', [], 'YTickLabel', []);
 colorbar;
+
 
 % Calculate coverage after W-thresholding
 nonzero_pixels = nnz(filtered_coefficients);  % Number of nonzero pixels
@@ -89,6 +100,26 @@ fprintf('Eccentricity of filtered regions:\n');
 for i = 1:length(region_props)
     fprintf('Region %d: Eccentricity = %.4f\n', i, region_props(i).Eccentricity);
 end
+
+% Plotting stuff
+
+% Set figure properties
+set(findall(hfig, '-property', 'FontSize'), 'FontSize', 14); % Adjust fontsize
+set(findall(hfig, '-property', 'Box'), 'Box', 'on'); % Remove box if needed
+set(findall(hfig, '-property', 'Interpreter'), 'Interpreter', 'latex');
+set(findall(hfig, '-property', 'TickLabelInterpreter'), 'TickLabelInterpreter', 'latex');
+legend('Location', 'southeast', 'FontSize', 14, 'FontWeight', 'bold', 'Box','off');
+
+% Configure figure size and save options
+picturewidth = 20; % in centimeters
+hw_ratio = 0.6; % height-width ratio
+set(hfig, 'Units', 'centimeters', 'Position', [3 3 picturewidth hw_ratio * picturewidth]);
+pos = get(hfig, 'Position');
+set(hfig, 'PaperPositionMode', 'Auto', 'PaperUnits', 'centimeters', 'PaperSize', [pos(3), pos(4)]);
+
+% Uncomment the appropriate line below to save
+%print(hfig, fname, '-dpdf', '-vector', '-fillpage');
+%print(hfig, fname, '-dpng', '-r300'); % Adjust resolution if needed
 
 % %% Try to find out which region is which
 % 

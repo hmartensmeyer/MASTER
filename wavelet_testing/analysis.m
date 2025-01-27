@@ -7,12 +7,12 @@ data = grayscaleVideo_short;
 
 %% Wavelet analysis
 
-[original_flow, wavelet_coefficients_full, filtered_all_structures, filtered_dimples] = wavelet_func(data, 100, 15, 7, 0.2, 0.85, 0.6, 0.6);
+[original_flow, wavelet_coefficients_full, filtered_all_structures, filtered_dimples] = wavelet_func(data, 300, 15, 7, 0.2, 0.85, 0.6, 0.6);
 
 %%
 
 for t = 1:num_timesteps
-    imagesc(filtered_all_structures(:, :, t));
+    imagesc(filtered_dimples(:, :, t));
     colormap 'gray';
     title('Timestep: ', t)
     pause(0.1);
@@ -20,7 +20,7 @@ end
 
 %% track dimples
 
-[centroid_positions, structure_labels, structure_lifetimes, num_structures, num_timesteps] = dimpletracker(filtered_dimples, 15);
+[centroid_positions, structure_labels, structure_lifetimes, num_structures, num_timesteps] = dimpletracker(filtered_dimples, 20);
 
 %% Visualization of tracking over time
 figure;
@@ -79,6 +79,9 @@ colors = lines(length(valid_structures));
 for t = 1:num_timesteps
     % Display the snapshot as background
     imagesc(filtered_dimples(:, :, t));
+    title('Filtered dimples at timestep: ', t);
+    xlabel('X');
+    ylabel('Y');
     hold on;
 
     % Get centroids and labels for the current frame
@@ -89,7 +92,7 @@ for t = 1:num_timesteps
                 % Plot a small dot for the valid structure
                 structure_idx = find(valid_structures == label, 1);
                 scatter(centroid_positions{t}(i, 1), centroid_positions{t}(i, 2), ...
-                    20, colors(structure_idx, :), 'filled');
+                    200, colors(structure_idx, :));
             end
         end
     end
