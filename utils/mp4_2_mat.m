@@ -3,8 +3,8 @@
 % File Output: MAT file containing cropped grayscale frames
 
 % Specify the input and output files
-inputFile = '..\data\ceiling_vid_mobile.mp4'; % Replace with the actual file name
-outputFile = '..\data\ceiling_vid_mobile.mat'; % Output .mat file name
+inputFile = '..\data\ceiling_vid_gopro.avi'; % Replace with the actual file name
+outputFile = '..\data\ceiling_vid_gopro.mat'; % Output .mat file name
 
 %% Create a VideoReader object
 videoReader = VideoReader(inputFile);
@@ -16,8 +16,10 @@ numFrames = floor(videoReader.Duration * videoReader.FrameRate);
 grayscaleFrames = cell(1, numFrames);
 
 % Loop through each frame of the video
-maxFrames = 1000; % Limit the number of frames processed
+maxFrames = 200; % Limit the number of frames processed
 frameIndex = 1;
+
+%%
 
 while hasFrame(videoReader) && frameIndex <= maxFrames
     % Read the next frame
@@ -31,7 +33,7 @@ while hasFrame(videoReader) && frameIndex <= maxFrames
     
     % Crop the top 5% of the frame
     frameHeight = size(grayFrame, 1);
-    cropHeight = floor(0.05 * frameHeight); % Calculate the top 5% height
+    cropHeight = floor(0*0.05 * frameHeight); % Calculate the top 5% height
     grayFrameCropped = grayFrame(cropHeight+1:end, :); % Remove the top 5% rows
     
     % Store the cropped grayscale frame
@@ -50,9 +52,16 @@ for i = 1:numFrames
 end
 
 %% Optionally, select only the first 1000 frames
-grayscaleVideo_short = grayscaleVideo(:, :, 1:min(1000, numFrames));
+ceiling_resized = grayscaleVideo(:, :, 1:min(200, numFrames));
 
 %% Save the cropped grayscale video to a .mat file
-save(outputFile, 'grayscaleVideo_short', '-v7.3');
+save(outputFile, 'ceiling_resized', '-v7.3');
 
 disp(['Cropped grayscale video saved to ', outputFile]);
+
+%%
+
+ffmpegexec('-i ..\data\ceiling_vid_gopro.mp4 -c:v mjpeg -q:v 2 ..\data\ceiling_vid_gopro.avi');
+
+%%
+ffmpegexec('-i ..\data\ceiling_vid_gopro.avi -vf scale=1280:-1 ..\data\ceiling_vid_resized.avi');

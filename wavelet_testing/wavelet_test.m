@@ -1,10 +1,11 @@
 %% Kun development. Må gjøre om denne til en funksjon tenker jeg.
 
-eta = load ('..\data\ceiling_vid_mobile.mat');
-eta = eta.grayscaleVideo_short;
+eta = load ('..\data\ceiling_vid_resized.mat');
+%%
+eta = eta.ceiling_resized;
 %%
 
-t_index = 145;
+t_index = 45;
 snapshot = eta(:, :, t_index);
 
 % Perform 2D continuous wavelet transform with the Mexican hat wavelet
@@ -16,7 +17,7 @@ selected_scale = 7;  % Example scale index
 wavelet_coefficients = cwt_result.cfs(:,:,selected_scale);
 
 % Define the threshold
-W_thr = 0.15;
+W_thr = 0.1;
 
 % Create a mask for regions where W > W_thr
 mask = wavelet_coefficients > W_thr;
@@ -151,7 +152,7 @@ set(hfig, 'PaperPositionMode', 'Auto', 'PaperUnits', 'centimeters', 'PaperSize',
 timesteps = 1:100;  % Define the range of timesteps (100 timesteps)
 scales = 1:10;  % Adjust scale range based on feature size
 selected_scale = 7;  % Scale index to use
-W_thr = 0.2;  % Threshold for wavelet coefficients
+W_thr = 0.1;  % Threshold for wavelet coefficients
 eccentricity_threshold = 0.85;  % Threshold for eccentricity
 circularity_threshold = 0.8;
 solidity_threshold = 0.6;
@@ -370,7 +371,7 @@ end
 
 
 %% Visualize a single structure and its active timesteps
-structure_to_show = 92;  % Specify the structure label to visualize
+structure_to_show = 2690;  % Specify the structure label to visualize
 
 % Initialize figure for visualization
 figure('Name', sprintf('Structure %d Visualization', structure_to_show), 'Position', [100, 100, 800, 600]);
