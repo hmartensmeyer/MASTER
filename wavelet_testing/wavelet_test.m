@@ -1,11 +1,27 @@
 %% Kun development. Må gjøre om denne til en funksjon tenker jeg.
 
-eta = load ('..\data\ceiling_vid_resized.mat');
+data = load ('..\data\ceiling_vid_576.mat');
 %%
-eta = eta.ceiling_resized;
+data_frame = data.ceiling_resized;
+%%
+eta = data_frame;
+%% Short snippet to get data on correct form
+[height, width] = size(data_frame{1});
+
+% Preallocate a 3D matrix for the frames
+numFrames = length(data_frame);
+eta = zeros(height, width, numFrames, 'uint8'); % Use 'uint8' for grayscale images
+
+% Populate the 3D matrix
+for t = 1:numFrames
+    eta(:, :, t) = data_frame{t};
+end
+
+disp('Converted filteredFramesGray to 3D matrix.');
+
 %%
 
-t_index = 45;
+t_index = 800;
 snapshot = eta(:, :, t_index);
 
 % Perform 2D continuous wavelet transform with the Mexican hat wavelet
@@ -17,7 +33,7 @@ selected_scale = 7;  % Example scale index
 wavelet_coefficients = cwt_result.cfs(:,:,selected_scale);
 
 % Define the threshold
-W_thr = 0.1;
+W_thr = 0.12;
 
 % Create a mask for regions where W > W_thr
 mask = wavelet_coefficients > W_thr;
@@ -39,8 +55,8 @@ eccentric_regions = ismember(labelmatrix(connected_components), ...
     find([region_props.Eccentricity] < eccentricity_threshold  & [region_props.Solidity] > solidity_threshold));
 
 % Apply the new mask to the wavelet coefficients
-filtered_by_eccentricity = wavelet_coefficients .* eccentric_regions;
-%filtered_by_eccentricity = 1 - eccentric_regions; %binary version
+%filtered_by_eccentricity = wavelet_coefficients .* eccentric_regions;
+filtered_by_eccentricity = 1 - eccentric_regions; %binary version
 
 % Plot original surface elevation
 hfig = figure('Name', 'Wavelet Analysis', Colormap=gray);
@@ -54,7 +70,7 @@ imagesc(snapshot);
 title(sprintf('Grayscale ceiling at t = %d', t_index));
 xlabel('X');
 ylabel('Y');
-set(gca, 'XTickLabel', [], 'YTickLabel', []);
+%set(gca, 'XTickLabel', [], 'YTickLabel', []);
 colorbar;
 
 % Wavelet coefficients
@@ -149,19 +165,19 @@ set(hfig, 'PaperPositionMode', 'Auto', 'PaperUnits', 'centimeters', 'PaperSize',
 %% Test for time series
 
 % Parameters
-timesteps = 1:100;  % Define the range of timesteps (100 timesteps)
-scales = 1:10;  % Adjust scale range based on feature size
+timesteps = 750:850;  % Define the range of timesteps (100 timesteps)
+scales = 1:15;  % Adjust scale range based on feature size
 selected_scale = 7;  % Scale index to use
-W_thr = 0.1;  % Threshold for wavelet coefficients
+W_thr = 0.12;  % Threshold for wavelet coefficients
 eccentricity_threshold = 0.85;  % Threshold for eccentricity
 circularity_threshold = 0.8;
 solidity_threshold = 0.6;
 
 % Preallocate array for filtered snapshots
 [x_dim, y_dim] = size(eta(:, :, 1));  % Dimensions of each snapshot
-original_flow = zeros(x_dim, y_dim, length(timesteps));
-wavelet_coefficients_full = zeros(x_dim, y_dim, length(timesteps));
-filtered_all_structures = zeros(x_dim, y_dim, length(timesteps));
+%original_flow = zeros(x_dim, y_dim, length(timesteps));
+%wavelet_coefficients_full = zeros(x_dim, y_dim, length(timesteps));
+%filtered_all_structures = zeros(x_dim, y_dim, length(timesteps));
 filtered_dimples = zeros(x_dim, y_dim, length(timesteps));  % 3D array to store results
 
 % Loop through each timestep
@@ -197,9 +213,9 @@ for t_index = 1:length(timesteps)
     %filtered_by_eccentricity = 1 - eccentric_regions; %binary version
 
     % Save the filtered snapshot
-    original_flow(:, :, t_index) = snapshot;
-    wavelet_coefficients_full(:, :, t_index) = wavelet_coefficients;
-    filtered_all_structures(:, :, t_index) = filtered_coefficients;
+    %original_flow(:, :, t_index) = snapshot;
+    %wavelet_coefficients_full(:, :, t_index) = wavelet_coefficients;
+    %filtered_all_structures(:, :, t_index) = filtered_coefficients;
     filtered_dimples(:, :, t_index) = filtered_by_eccentricity;
 end
 
@@ -208,11 +224,11 @@ end
 
 %% Display the vortices over time
 
-for t = 1:1000
+for t = 1:100
     imagesc(filtered_dimples(:, :, t));
     colormap 'gray';
     title('Timestep: ', t)
-    pause(0.1);
+    pause(0.2);
 end
 
 %% Neste på programmet
@@ -226,7 +242,7 @@ end
 num_timesteps = size(filtered_dimples, 3);
 centroid_positions = cell(num_timesteps, 1);  % Store centroids for each timestep
 structure_labels = cell(num_timesteps, 1);   % Store region labels for tracking
-max_distance = 15;  % Maximum distance to associate centroids between frames
+max_distance = 40;  % Maximum distance to associate centroids between frames
 
 % Loop through each timestep to extract region centroids and labels
 for t = 1:num_timesteps
@@ -300,7 +316,7 @@ for t = 1:num_timesteps
             label = structure_labels{t}(i);
             color = lines(max(cellfun(@max, structure_labels)));  % Generate unique colors
             scatter(centroid_positions{t}(i, 1), centroid_positions{t}(i, 2), ...
-                20, color(label, :), 'filled');  % Smaller markers
+                200, color(label, :));  % Smaller markers
         end
     end
 
@@ -369,9 +385,8 @@ for i = 1:num_structures
     fprintf('Structure %d: %d timesteps\n', i, structure_lifetimes(i));
 end
 
-
 %% Visualize a single structure and its active timesteps
-structure_to_show = 2690;  % Specify the structure label to visualize
+structure_to_show = 1100;  % Specify the structure label to visualize
 
 % Initialize figure for visualization
 figure('Name', sprintf('Structure %d Visualization', structure_to_show), 'Position', [100, 100, 800, 600]);
@@ -453,6 +468,6 @@ for t = 1:num_timesteps
         end
     end
 
-    pause(0.1);  % Pause for visualization
+    pause(0.5);  % Pause for visualization
     hold off;
 end
