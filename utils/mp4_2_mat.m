@@ -58,3 +58,7 @@ ceiling_resized = grayscaleVideo(:, :, 1:min(1000, numFrames));
 save(outputFile, 'ceiling_resized', '-v7.3');
 
 disp(['Cropped grayscale video saved to ', outputFile]);
+
+%% Convert from MP4 to AVI
+
+ffmpegexec('-i ..\data\ceiling_gopro.mp4 -c:v mjpeg -q:v 2 ..\data\ceiling_gopro.avi');

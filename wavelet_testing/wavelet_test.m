@@ -1,8 +1,8 @@
 %% Kun development. Må gjøre om denne til en funksjon tenker jeg.
 
-data = load ('..\data\ceiling_vid_576.mat');
+data = load ('..\data\filtered_gray_1920_5000t.mat');
 %%
-data_frame = data.ceiling_resized;
+data_frame = data.filteredFramesGray;
 %%
 eta = data_frame;
 %% Short snippet to get data on correct form
@@ -25,15 +25,15 @@ t_index = 800;
 snapshot = eta(:, :, t_index);
 
 % Perform 2D continuous wavelet transform with the Mexican hat wavelet
-scales = 1:15;  % Adjust scale range based on feature size
+scales = 1:30;  % Adjust scale range based on feature size
 cwt_result = cwtft2(snapshot, 'Wavelet', 'mexh', 'Scales', scales);
 
 % Extract wavelet coefficients at a specific scale
-selected_scale = 7;  % Example scale index
+selected_scale = 14;  % Example scale index
 wavelet_coefficients = cwt_result.cfs(:,:,selected_scale);
 
 % Define the threshold
-W_thr = 0.12;
+W_thr = 50;
 
 % Create a mask for regions where W > W_thr
 mask = wavelet_coefficients > W_thr;
@@ -112,11 +112,11 @@ coverage = nonzero_pixels / total_pixels;    % Fraction of nonzero pixels
 % Display coverage
 fprintf('Coverage after W-thresholding: %.2f%%\n', coverage * 100);
 
-% Display eccentricity values of filtered regions
-fprintf('Eccentricity of filtered regions:\n');
-for i = 1:length(region_props)
-    fprintf('Region %d: Eccentricity = %.4f\n', i, region_props(i).Eccentricity);
-end
+% % Display eccentricity values of filtered regions
+% fprintf('Eccentricity of filtered regions:\n');
+% for i = 1:length(region_props)
+%     fprintf('Region %d: Eccentricity = %.4f\n', i, region_props(i).Eccentricity);
+% end
 
 % Plotting stuff
 
@@ -165,10 +165,10 @@ set(hfig, 'PaperPositionMode', 'Auto', 'PaperUnits', 'centimeters', 'PaperSize',
 %% Test for time series
 
 % Parameters
-timesteps = 750:850;  % Define the range of timesteps (100 timesteps)
-scales = 1:15;  % Adjust scale range based on feature size
-selected_scale = 7;  % Scale index to use
-W_thr = 0.12;  % Threshold for wavelet coefficients
+timesteps = 1:200;  % Define the range of timesteps (100 timesteps)
+scales = 1:30;  % Adjust scale range based on feature size
+selected_scale = 14;  % Scale index to use
+W_thr = 50;  % Threshold for wavelet coefficients
 eccentricity_threshold = 0.85;  % Threshold for eccentricity
 circularity_threshold = 0.8;
 solidity_threshold = 0.6;
@@ -242,7 +242,7 @@ end
 num_timesteps = size(filtered_dimples, 3);
 centroid_positions = cell(num_timesteps, 1);  % Store centroids for each timestep
 structure_labels = cell(num_timesteps, 1);   % Store region labels for tracking
-max_distance = 40;  % Maximum distance to associate centroids between frames
+max_distance = 50;  % Maximum distance to associate centroids between frames
 
 % Loop through each timestep to extract region centroids and labels
 for t = 1:num_timesteps
@@ -386,7 +386,7 @@ for i = 1:num_structures
 end
 
 %% Visualize a single structure and its active timesteps
-structure_to_show = 1100;  % Specify the structure label to visualize
+structure_to_show = 3631;  % Specify the structure label to visualize
 
 % Initialize figure for visualization
 figure('Name', sprintf('Structure %d Visualization', structure_to_show), 'Position', [100, 100, 800, 600]);
@@ -471,3 +471,4 @@ for t = 1:num_timesteps
     pause(0.5);  % Pause for visualization
     hold off;
 end
+
