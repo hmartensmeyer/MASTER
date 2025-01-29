@@ -21,7 +21,7 @@ disp('Converted filteredFramesGray to 3D matrix.');
 
 %%
 
-t_index = 800;
+t_index = 75;
 snapshot = eta(:, :, t_index);
 
 % Perform 2D continuous wavelet transform with the Mexican hat wavelet
@@ -29,11 +29,11 @@ scales = 1:30;  % Adjust scale range based on feature size
 cwt_result = cwtft2(snapshot, 'Wavelet', 'mexh', 'Scales', scales);
 
 % Extract wavelet coefficients at a specific scale
-selected_scale = 14;  % Example scale index
+selected_scale = 15;  % Example scale index
 wavelet_coefficients = cwt_result.cfs(:,:,selected_scale);
 
 % Define the threshold
-W_thr = 50;
+W_thr = 100;
 
 % Create a mask for regions where W > W_thr
 mask = wavelet_coefficients > W_thr;
@@ -165,10 +165,10 @@ set(hfig, 'PaperPositionMode', 'Auto', 'PaperUnits', 'centimeters', 'PaperSize',
 %% Test for time series
 
 % Parameters
-timesteps = 1:200;  % Define the range of timesteps (100 timesteps)
+timesteps = 60:100;  % Define the range of timesteps (100 timesteps)
 scales = 1:30;  % Adjust scale range based on feature size
-selected_scale = 14;  % Scale index to use
-W_thr = 50;  % Threshold for wavelet coefficients
+selected_scale = 15;  % Scale index to use
+W_thr = 100;  % Threshold for wavelet coefficients
 eccentricity_threshold = 0.85;  % Threshold for eccentricity
 circularity_threshold = 0.8;
 solidity_threshold = 0.6;
@@ -177,7 +177,7 @@ solidity_threshold = 0.6;
 [x_dim, y_dim] = size(eta(:, :, 1));  % Dimensions of each snapshot
 %original_flow = zeros(x_dim, y_dim, length(timesteps));
 %wavelet_coefficients_full = zeros(x_dim, y_dim, length(timesteps));
-%filtered_all_structures = zeros(x_dim, y_dim, length(timesteps));
+filtered_all_structures = zeros(x_dim, y_dim, length(timesteps));
 filtered_dimples = zeros(x_dim, y_dim, length(timesteps));  % 3D array to store results
 
 % Loop through each timestep
@@ -215,7 +215,7 @@ for t_index = 1:length(timesteps)
     % Save the filtered snapshot
     %original_flow(:, :, t_index) = snapshot;
     %wavelet_coefficients_full(:, :, t_index) = wavelet_coefficients;
-    %filtered_all_structures(:, :, t_index) = filtered_coefficients;
+    filtered_all_structures(:, :, t_index) = filtered_coefficients;
     filtered_dimples(:, :, t_index) = filtered_by_eccentricity;
 end
 
@@ -224,7 +224,7 @@ end
 
 %% Display the vortices over time
 
-for t = 1:100
+for t = 1:41
     imagesc(filtered_dimples(:, :, t));
     colormap 'gray';
     title('Timestep: ', t)
@@ -242,7 +242,7 @@ end
 num_timesteps = size(filtered_dimples, 3);
 centroid_positions = cell(num_timesteps, 1);  % Store centroids for each timestep
 structure_labels = cell(num_timesteps, 1);   % Store region labels for tracking
-max_distance = 50;  % Maximum distance to associate centroids between frames
+max_distance = 60;  % Maximum distance to associate centroids between frames
 
 % Loop through each timestep to extract region centroids and labels
 for t = 1:num_timesteps
@@ -303,7 +303,7 @@ end
 
 %% Visualization of tracking over time
 figure;
-for t = 1:num_timesteps
+for t = 1:41
     % Display the filtered structure for the current timestep
     subplot(1, 1, 1);
     imagesc(filtered_dimples(:, :, t));
@@ -324,7 +324,7 @@ for t = 1:num_timesteps
     xlabel('X Coordinate');
     ylabel('Y Coordinate');
     hold off;
-    pause(0.1);  % Pause for visualization
+    pause(0.5);  % Pause for visualization
 end
 
 %% Visualize structures as small dots at each timestep
@@ -382,11 +382,13 @@ end
 %% Display the list of structures and their lifetimes
 disp('Structure Lifetimes:');
 for i = 1:num_structures
-    fprintf('Structure %d: %d timesteps\n', i, structure_lifetimes(i));
+    if structure_lifetimes(i) > 5
+        fprintf('Structure %d: %d timesteps\n', i, structure_lifetimes(i));
+    end
 end
 
 %% Visualize a single structure and its active timesteps
-structure_to_show = 3631;  % Specify the structure label to visualize
+structure_to_show = 1091;  % Specify the structure label to visualize
 
 % Initialize figure for visualization
 figure('Name', sprintf('Structure %d Visualization', structure_to_show), 'Position', [100, 100, 800, 600]);
