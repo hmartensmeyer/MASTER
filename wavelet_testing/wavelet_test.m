@@ -25,7 +25,7 @@ t_index = 75;
 snapshot = eta(:, :, t_index);
 
 % Perform 2D continuous wavelet transform with the Mexican hat wavelet
-scales = 1:30;  % Adjust scale range based on feature size
+scales = 1:20;  % Adjust scale range based on feature size
 cwt_result = cwtft2(snapshot, 'Wavelet', 'mexh', 'Scales', scales);
 
 % Extract wavelet coefficients at a specific scale
@@ -33,7 +33,7 @@ selected_scale = 15;  % Example scale index
 wavelet_coefficients = cwt_result.cfs(:,:,selected_scale);
 
 % Define the threshold
-W_thr = 100;
+W_thr = 60;
 
 % Create a mask for regions where W > W_thr
 mask = wavelet_coefficients > W_thr;
@@ -166,9 +166,9 @@ set(hfig, 'PaperPositionMode', 'Auto', 'PaperUnits', 'centimeters', 'PaperSize',
 
 % Parameters
 timesteps = 60:100;  % Define the range of timesteps (100 timesteps)
-scales = 1:30;  % Adjust scale range based on feature size
+scales = 1:15;  % Adjust scale range based on feature size
 selected_scale = 15;  % Scale index to use
-W_thr = 100;  % Threshold for wavelet coefficients
+W_thr = 90;  % Threshold for wavelet coefficients
 eccentricity_threshold = 0.85;  % Threshold for eccentricity
 circularity_threshold = 0.8;
 solidity_threshold = 0.6;
@@ -242,7 +242,7 @@ end
 num_timesteps = size(filtered_dimples, 3);
 centroid_positions = cell(num_timesteps, 1);  % Store centroids for each timestep
 structure_labels = cell(num_timesteps, 1);   % Store region labels for tracking
-max_distance = 60;  % Maximum distance to associate centroids between frames
+max_distance = 100;  % Maximum distance to associate centroids between frames
 
 % Loop through each timestep to extract region centroids and labels
 for t = 1:num_timesteps
@@ -300,7 +300,6 @@ for t = 1:num_timesteps
 end
 
 
-
 %% Visualization of tracking over time
 figure;
 for t = 1:41
@@ -326,6 +325,130 @@ for t = 1:41
     hold off;
     pause(0.5);  % Pause for visualization
 end
+
+%% ALTERNATIVE PARTICLE TRACKING
+
+% %% Particle Tracking Algorithm for Structure Tracking (Fixed)
+% % Parameters
+% num_timesteps = size(filtered_dimples, 3);
+% particle_positions = cell(num_timesteps, 1);  % Store tracked positions
+% particle_labels = cell(num_timesteps, 1);  % Store particle IDs
+% max_search_radius = 50;  % Max allowed movement per frame
+% prediction_weight = 0.8;  % Weight for velocity-based prediction
+% 
+% % Initialize particles from the first frame
+% binary_mask = filtered_dimples(:, :, 1) > 0;
+% connected_components = bwconncomp(binary_mask);
+% region_props = regionprops(connected_components, 'Centroid');
+% 
+% if ~isempty(region_props)
+%     particle_positions{1} = cat(1, region_props.Centroid);
+%     particle_labels{1} = (1:size(particle_positions{1}, 1))';
+% else
+%     particle_positions{1} = [];
+%     particle_labels{1} = [];
+% end
+% 
+% % Track particles through time
+% for t = 2:num_timesteps
+%     disp(['Tracking timestep: ', num2str(t)])
+% 
+%     % Get current frame's structures
+%     binary_mask = filtered_dimples(:, :, t) > 0;
+%     connected_components = bwconncomp(binary_mask);
+%     region_props = regionprops(connected_components, 'Centroid');
+% 
+%     if ~isempty(region_props)
+%         current_positions = cat(1, region_props.Centroid);
+%     else
+%         current_positions = [];
+%     end
+% 
+%     % Get previous frame's particle positions and labels
+%     previous_positions = particle_positions{t-1};
+%     previous_labels = particle_labels{t-1};
+% 
+%     % Compute past displacement for only matched structures
+%     if t > 2 && ~isempty(particle_positions{t-2}) && ~isempty(previous_positions)
+%         % Find matches between previous and t-2 positions
+%         distance_matrix_past = pdist2(previous_positions, particle_positions{t-2});
+%         [~, closest_past_idx] = min(distance_matrix_past, [], 2);
+% 
+%         % Ensure index validity
+%         valid_matches = closest_past_idx <= size(particle_positions{t-2}, 1);
+%         past_displacement = zeros(size(previous_positions));
+%         past_displacement(valid_matches, :) = ...
+%             previous_positions(valid_matches, :) - particle_positions{t-2}(closest_past_idx(valid_matches), :);
+%     else
+%         past_displacement = zeros(size(previous_positions));
+%     end
+% 
+%     % Predict next positions using past displacement
+%     predicted_positions = previous_positions + prediction_weight * past_displacement;
+% 
+%     % Match new positions to predicted positions (nearest neighbor search)
+%     particle_labels{t} = zeros(size(current_positions, 1), 1);
+%     if ~isempty(previous_positions) && ~isempty(current_positions)
+%         distance_matrix = pdist2(current_positions, predicted_positions);
+%         matched_previous = false(size(previous_positions, 1), 1);
+% 
+%         for i = 1:size(current_positions, 1)
+%             [min_distance, closest_idx] = min(distance_matrix(i, :));
+% 
+%             if min_distance < max_search_radius && ~matched_previous(closest_idx)
+%                 % Assign same label if within range
+%                 particle_labels{t}(i) = previous_labels(closest_idx);
+%                 matched_previous(closest_idx) = true;
+%             else
+%                 % Assign a new label to unmatched particles
+%                 particle_labels{t}(i) = max(previous_labels) + 1;
+%             end
+%         end
+%     else
+%         % If no previous particles, assign new labels
+%         particle_labels{t} = (1:size(current_positions, 1))';
+%     end
+% 
+%     % Store updated particle positions
+%     particle_positions{t} = current_positions;
+% end
+% 
+% %% Visualization of Particle Tracking Over Time
+% figure;
+% num_timesteps = length(particle_positions);
+% 
+% for t = 1:num_timesteps
+%     % Display the filtered structure for the current timestep
+%     clf; % Clear figure for smooth animation
+%     imagesc(filtered_dimples(:, :, t));
+%     colormap('gray');
+%     hold on;
+% 
+%     % Plot tracked particles with unique colors
+%     if ~isempty(particle_positions{t})
+%         num_particles = max(cellfun(@max, particle_labels(~cellfun(@isempty, particle_labels))));
+%         color_map = lines(num_particles);  % Generate distinct colors
+% 
+%         for i = 1:size(particle_positions{t}, 1)
+%             label = particle_labels{t}(i);
+% 
+%             % Ensure label is within range to avoid indexing errors
+%             if label > 0 && label <= size(color_map, 1)
+%                 color = color_map(label, :);
+%                 scatter(particle_positions{t}(i, 1), particle_positions{t}(i, 2), ...
+%                     100, color, 'filled');  % Adjust marker size as needed
+%             end
+%         end
+%     end
+% 
+%     title(sprintf('Timestep: %d', t));
+%     xlabel('X Coordinate');
+%     ylabel('Y Coordinate');
+%     axis equal;
+%     drawnow;
+%     pause(0.5);  % Pause for visualization
+% end
+
 
 %% Visualize structures as small dots at each timestep
 % Initialize figure
@@ -388,7 +511,7 @@ for i = 1:num_structures
 end
 
 %% Visualize a single structure and its active timesteps
-structure_to_show = 1091;  % Specify the structure label to visualize
+structure_to_show = 7;  % Specify the structure label to visualize
 
 % Initialize figure for visualization
 figure('Name', sprintf('Structure %d Visualization', structure_to_show), 'Position', [100, 100, 800, 600]);
