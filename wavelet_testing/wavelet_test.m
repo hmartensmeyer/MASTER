@@ -226,161 +226,161 @@ end
 %save('filtered_snapshots.mat', 'filtered_snapshots', '-v7.3');
 
 %% Enhanced Tracking with Time-Dependent Y-Shift and Widened Search Radius
-% (Make sure that the variable "eta" is defined as a 3D array of snapshots
-%  and that the vector "times" contains the corresponding time for each snapshot.)
-
-% Parameters for wavelet filtering
-scales = 1:15;              % Adjust scale range based on feature size
-selected_scale = 15;        % Scale index to use
-W_thr = 90;                 % Threshold for wavelet coefficients
-eccentricity_threshold = 0.85;
-solidity_threshold = 0.6;
-
-% Tracking parameters
-baseYShift = 35;  % Base offset in the y-direction per time unit.
-                  % For consecutive times (dt==1) search is centered at y+35.
-                  % For dt>1 the predicted y-shift (and search radius) is dt*35.
-
-% Assume "times" is provided (e.g., times = [56, 59, 62, ...];)
-% The number of snapshots is assumed to be length(times).
-
-% Preallocate arrays for filtered snapshots (if you wish to save them)
-[x_dim, y_dim] = size(eta(:, :, 1));
-filtered_all_structures = zeros(x_dim, y_dim, length(times));
-filtered_dimples = zeros(x_dim, y_dim, length(times));
-
-% Initialize tracking structure
-% Each track will have an id, a list of centroids, and a list of time stamps.
-tracks = struct('id', {}, 'centroids', {}, 'frames', {});
-nextTrackId = 1;
-
-% Loop over each snapshot using the provided "times" array
-for t_index = 1:length(times)
-    currentTime = times(t_index);
-    
-    % IMPORTANT: Adjust the indexing for your snapshots.
-    % If "eta" is organized so that the third dimension corresponds to the 
-    % snapshot order (and matches "times"), then use:
-    snapshot = eta(:, :, t_index);
-    % Alternatively, if the time value is used as an index (e.g. snapshot 56, 59, ...)
-    % then use:
-    %   snapshot = eta(:, :, currentTime);
-    
-    % === Wavelet Filtering (same as your original code) === %
-    % Compute the 2D continuous wavelet transform using the Mexican hat wavelet
-    cwt_result = cwtft2(snapshot, 'Wavelet', 'mexh', 'Scales', scales);
-    wavelet_coefficients = cwt_result.cfs(:, :, selected_scale);
-    
-    % Threshold coefficients (keep only values above W_thr)
-    mask = wavelet_coefficients > W_thr;
-    filtered_coefficients = wavelet_coefficients .* mask;
-    
-    % Label connected regions and compute their properties
-    connected_components = bwconncomp(mask);
-    region_props = regionprops(connected_components, 'Eccentricity', 'Solidity', 'Centroid');
-    
-    % Filter regions by eccentricity and solidity
-    validIdx = find([region_props.Eccentricity] < eccentricity_threshold & ...
-                      [region_props.Solidity] > solidity_threshold);
-    eccentric_regions = ismember(labelmatrix(connected_components), validIdx);
-    filtered_by_eccentricity = wavelet_coefficients .* eccentric_regions;
-    
-    % Save the filtered snapshots (if desired)
-    filtered_all_structures(:, :, t_index) = filtered_coefficients;
-    filtered_dimples(:, :, t_index) = filtered_by_eccentricity;
-    
-    % === Extract Centroids from Valid Regions === %
-    if isempty(validIdx)
-        centroids = [];
-    else
-        % Each row is [x, y]
-        centroids = cat(1, region_props(validIdx).Centroid);
-    end
-    numDetections = size(centroids, 1);
-    
-    % --- Tracking ---
-    % For every detected centroid, we want to see if it matches an existing track.
-    % For each existing track, the predicted position is the last recorded
-    % centroid shifted in the y-direction by (currentTime - lastTime)*baseYShift.
-    % The allowed search radius is also (currentTime - lastTime)*baseYShift.
-    
-    numTracks = length(tracks);
-    % Create a cost matrix: rows correspond to detections, columns to existing tracks.
-    costMatrix = Inf(numDetections, numTracks);
-    for i = 1:numDetections
-        for j = 1:numTracks
-            lastTime = tracks(j).frames(end);
-            dt = currentTime - lastTime;  % Time gap (could be > 1)
-            % Predicted position: same x, but shifted in y by dt*baseYShift
-            predicted = [tracks(j).centroids(end, 1), tracks(j).centroids(end, 2) + dt * baseYShift];
-            allowedDistance = dt * baseYShift;
-            d = norm(centroids(i, :) - predicted);
-            if d <= allowedDistance
-                costMatrix(i, j) = d;
-            else
-                costMatrix(i, j) = Inf;
-            end
-        end
-    end
-    
-    % Use a greedy algorithm to assign detections to tracks.
-    % (Each detection and track may be used only once.)
-    detectionTrackIDs = zeros(numDetections, 1);  % To record which track (id) each detection belongs to
-    assignments = [];  % Each row will be: [detectionIndex, trackIndex, cost]
-    if ~isempty(costMatrix)
-        while true
-            [minVal, idx] = min(costMatrix(:));
-            if isinf(minVal)
-                break;  % No remaining valid (within allowed distance) assignment
-            end
-            [detIdx, trackIdx] = ind2sub(size(costMatrix), idx);
-            assignments = [assignments; detIdx, trackIdx, minVal]; %#ok<AGROW>
-            detectionTrackIDs(detIdx) = tracks(trackIdx).id;  % record the assigned track id
-            costMatrix(detIdx, :) = Inf;  % Remove this detection from further assignment
-            costMatrix(:, trackIdx) = Inf;  % Remove this track from further assignment
-        end
-    end
-    
-    % Update the tracks that were assigned with the new detection.
-    if ~isempty(assignments)
-        for k = 1:size(assignments, 1)
-            detIdx = assignments(k, 1);
-            trackIdx = assignments(k, 2);
-            tracks(trackIdx).centroids(end+1, :) = centroids(detIdx, :);
-            tracks(trackIdx).frames(end+1) = currentTime;
-        end
-    end
-    
-    % For any detections that were not assigned to an existing track,
-    % start a new track.
-    for i = 1:numDetections
-        if detectionTrackIDs(i) == 0
-            tracks(nextTrackId).id = nextTrackId;
-            tracks(nextTrackId).centroids = centroids(i, :);
-            tracks(nextTrackId).frames = currentTime;
-            detectionTrackIDs(i) = nextTrackId;
-            nextTrackId = nextTrackId + 1;
-        end
-    end
-    
-    % === Optional Visualization === %
-    figure(1); clf;
-    imagesc(snapshot); colormap gray; hold on;
-    if ~isempty(centroids)
-        plot(centroids(:,1), centroids(:,2), 'r*', 'MarkerSize', 8);
-        for i = 1:numDetections
-            % Label the detection with its associated track ID
-            text(centroids(i,1)+2, centroids(i,2)+2, num2str(detectionTrackIDs(i)), ...
-                 'Color', 'y', 'FontSize', 12, 'FontWeight', 'bold');
-        end
-    end
-    title(['Time = ' num2str(currentTime)]);
-    drawnow;
-    
-end
-
-% After the loop, the structure "tracks" holds the full trajectories of all features.
-% You can now analyze or further visualize the tracked structures.
+% % (Make sure that the variable "eta" is defined as a 3D array of snapshots
+% %  and that the vector "times" contains the corresponding time for each snapshot.)
+% 
+% % Parameters for wavelet filtering
+% scales = 1:15;              % Adjust scale range based on feature size
+% selected_scale = 15;        % Scale index to use
+% W_thr = 90;                 % Threshold for wavelet coefficients
+% eccentricity_threshold = 0.85;
+% solidity_threshold = 0.6;
+% 
+% % Tracking parameters
+% baseYShift = 35;  % Base offset in the y-direction per time unit.
+%                   % For consecutive times (dt==1) search is centered at y+35.
+%                   % For dt>1 the predicted y-shift (and search radius) is dt*35.
+% 
+% % Assume "times" is provided (e.g., times = [56, 59, 62, ...];)
+% % The number of snapshots is assumed to be length(times).
+% 
+% % Preallocate arrays for filtered snapshots (if you wish to save them)
+% [x_dim, y_dim] = size(eta(:, :, 1));
+% filtered_all_structures = zeros(x_dim, y_dim, length(times));
+% filtered_dimples = zeros(x_dim, y_dim, length(times));
+% 
+% % Initialize tracking structure
+% % Each track will have an id, a list of centroids, and a list of time stamps.
+% tracks = struct('id', {}, 'centroids', {}, 'frames', {});
+% nextTrackId = 1;
+% 
+% % Loop over each snapshot using the provided "times" array
+% for t_index = 1:length(times)
+%     currentTime = times(t_index);
+% 
+%     % IMPORTANT: Adjust the indexing for your snapshots.
+%     % If "eta" is organized so that the third dimension corresponds to the 
+%     % snapshot order (and matches "times"), then use:
+%     snapshot = eta(:, :, t_index);
+%     % Alternatively, if the time value is used as an index (e.g. snapshot 56, 59, ...)
+%     % then use:
+%     %   snapshot = eta(:, :, currentTime);
+% 
+%     % === Wavelet Filtering (same as your original code) === %
+%     % Compute the 2D continuous wavelet transform using the Mexican hat wavelet
+%     cwt_result = cwtft2(snapshot, 'Wavelet', 'mexh', 'Scales', scales);
+%     wavelet_coefficients = cwt_result.cfs(:, :, selected_scale);
+% 
+%     % Threshold coefficients (keep only values above W_thr)
+%     mask = wavelet_coefficients > W_thr;
+%     filtered_coefficients = wavelet_coefficients .* mask;
+% 
+%     % Label connected regions and compute their properties
+%     connected_components = bwconncomp(mask);
+%     region_props = regionprops(connected_components, 'Eccentricity', 'Solidity', 'Centroid');
+% 
+%     % Filter regions by eccentricity and solidity
+%     validIdx = find([region_props.Eccentricity] < eccentricity_threshold & ...
+%                       [region_props.Solidity] > solidity_threshold);
+%     eccentric_regions = ismember(labelmatrix(connected_components), validIdx);
+%     filtered_by_eccentricity = wavelet_coefficients .* eccentric_regions;
+% 
+%     % Save the filtered snapshots (if desired)
+%     filtered_all_structures(:, :, t_index) = filtered_coefficients;
+%     filtered_dimples(:, :, t_index) = filtered_by_eccentricity;
+% 
+%     % === Extract Centroids from Valid Regions === %
+%     if isempty(validIdx)
+%         centroids = [];
+%     else
+%         % Each row is [x, y]
+%         centroids = cat(1, region_props(validIdx).Centroid);
+%     end
+%     numDetections = size(centroids, 1);
+% 
+%     % --- Tracking ---
+%     % For every detected centroid, we want to see if it matches an existing track.
+%     % For each existing track, the predicted position is the last recorded
+%     % centroid shifted in the y-direction by (currentTime - lastTime)*baseYShift.
+%     % The allowed search radius is also (currentTime - lastTime)*baseYShift.
+% 
+%     numTracks = length(tracks);
+%     % Create a cost matrix: rows correspond to detections, columns to existing tracks.
+%     costMatrix = Inf(numDetections, numTracks);
+%     for i = 1:numDetections
+%         for j = 1:numTracks
+%             lastTime = tracks(j).frames(end);
+%             dt = currentTime - lastTime;  % Time gap (could be > 1)
+%             % Predicted position: same x, but shifted in y by dt*baseYShift
+%             predicted = [tracks(j).centroids(end, 1), tracks(j).centroids(end, 2) + dt * baseYShift];
+%             allowedDistance = dt * baseYShift;
+%             d = norm(centroids(i, :) - predicted);
+%             if d <= allowedDistance
+%                 costMatrix(i, j) = d;
+%             else
+%                 costMatrix(i, j) = Inf;
+%             end
+%         end
+%     end
+% 
+%     % Use a greedy algorithm to assign detections to tracks.
+%     % (Each detection and track may be used only once.)
+%     detectionTrackIDs = zeros(numDetections, 1);  % To record which track (id) each detection belongs to
+%     assignments = [];  % Each row will be: [detectionIndex, trackIndex, cost]
+%     if ~isempty(costMatrix)
+%         while true
+%             [minVal, idx] = min(costMatrix(:));
+%             if isinf(minVal)
+%                 break;  % No remaining valid (within allowed distance) assignment
+%             end
+%             [detIdx, trackIdx] = ind2sub(size(costMatrix), idx);
+%             assignments = [assignments; detIdx, trackIdx, minVal]; %#ok<AGROW>
+%             detectionTrackIDs(detIdx) = tracks(trackIdx).id;  % record the assigned track id
+%             costMatrix(detIdx, :) = Inf;  % Remove this detection from further assignment
+%             costMatrix(:, trackIdx) = Inf;  % Remove this track from further assignment
+%         end
+%     end
+% 
+%     % Update the tracks that were assigned with the new detection.
+%     if ~isempty(assignments)
+%         for k = 1:size(assignments, 1)
+%             detIdx = assignments(k, 1);
+%             trackIdx = assignments(k, 2);
+%             tracks(trackIdx).centroids(end+1, :) = centroids(detIdx, :);
+%             tracks(trackIdx).frames(end+1) = currentTime;
+%         end
+%     end
+% 
+%     % For any detections that were not assigned to an existing track,
+%     % start a new track.
+%     for i = 1:numDetections
+%         if detectionTrackIDs(i) == 0
+%             tracks(nextTrackId).id = nextTrackId;
+%             tracks(nextTrackId).centroids = centroids(i, :);
+%             tracks(nextTrackId).frames = currentTime;
+%             detectionTrackIDs(i) = nextTrackId;
+%             nextTrackId = nextTrackId + 1;
+%         end
+%     end
+% 
+%     % === Optional Visualization === %
+%     figure(1); clf;
+%     imagesc(snapshot); colormap gray; hold on;
+%     if ~isempty(centroids)
+%         plot(centroids(:,1), centroids(:,2), 'r*', 'MarkerSize', 8);
+%         for i = 1:numDetections
+%             % Label the detection with its associated track ID
+%             text(centroids(i,1)+2, centroids(i,2)+2, num2str(detectionTrackIDs(i)), ...
+%                  'Color', 'y', 'FontSize', 12, 'FontWeight', 'bold');
+%         end
+%     end
+%     title(['Time = ' num2str(currentTime)]);
+%     drawnow;
+% 
+% end
+% 
+% % After the loop, the structure "tracks" holds the full trajectories of all features.
+% % You can now analyze or further visualize the tracked structures.
 
 
 %% Display the vortices over time
