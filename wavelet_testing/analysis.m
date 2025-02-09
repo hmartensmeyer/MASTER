@@ -2,7 +2,7 @@
 addpath '../utils/'
 
 % import dataset
-load '..'\data\ceiling_vid_mobile.mat
+load '..'\data\filtered_gray_5000t_indices.mat
 data = grayscaleVideo_short;
 
 %% Wavelet analysis

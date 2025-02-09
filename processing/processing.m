@@ -84,7 +84,7 @@ disp(laserFrames);
 
 
 %% Step 3: Filter frames based on green intensity
-disp('Filtering frames with mean green intensity < 20...');
+disp('Filtering frames with mean green intensity < 25...');
 % Preallocate array for mean green intensity
 greenIntensity = zeros(numSelectedFrames, 1);
 filteredFrames = {}; % Initialize a cell array for filtered frames
@@ -96,11 +96,11 @@ for i = 1:numSelectedFrames
     greenIntensity(i) = mean(greenChannel(:)); % Compute mean green intensity
     % Check if the frame meets the intensity condition
     if greenIntensity(i) < 25
-    filteredFrames{filteredIdx} = frame; % Keep the frame
-    filteredIdx = filteredIdx + 1;
+        filteredFrames{filteredIdx} = frame; % Keep the frame
+        filteredIdx = filteredIdx + 1;
+    end
 end
-end
-disp(['Filtered ', num2str(length(filteredFrames)), ' frames with mean green intensity < 20.']);
+disp(['Filtered ', num2str(length(filteredFrames)), ' frames with mean green intensity < 25.']);
 % Display the filtered frames using imagesc
 disp('Displaying filtered frames...');
 figure;
@@ -128,6 +128,7 @@ disp(i)
 end
 % Calculate timestamps for the filtered frames
 filteredTimestamps = (startFrame + filteredFrameIndices - 1) / frameRate; % Convert frame indices to timestamps
+filteredTimeindeces = startFrame + filteredFrameIndices - 1; % Convert frame indices to timestamps
 % Save grayscale filtered frames and timestamps to a .mat file
-save('..\data\filtered_gray_1920_5000t.mat', 'filteredFramesGray', 'filteredTimestamps', '-v7.3');
+save('..\data\filtered_gray_5000t_indices.mat', 'filteredFramesGray', 'filteredTimeindeces', '-v7.3');
 disp('Filtered grayscale frames and timestamps saved to filtered_video_gray.mat.');
