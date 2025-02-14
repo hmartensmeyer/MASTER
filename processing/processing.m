@@ -5,7 +5,7 @@ vidObj = VideoReader(videoFile);
 
 %% Specify frame range to process
 startFrame = 1; % Start frame index
-endFrame = 5000; % End frame index
+endFrame = 1000; % End frame index
 frameRate = vidObj.FrameRate;
 % Calculate time to skip to the starting frame
 startTime = (startFrame - 1) / frameRate;
@@ -71,9 +71,9 @@ greenIntensity(isnan(greenIntensity)) = 0;
 % Plot green channel intensity over frames
 figure;
 plot(1:numSelectedFrames, greenIntensity(1:numSelectedFrames), 'g', 'LineWidth', 1.5);
-xlabel('Frame Index');
-ylabel('Mean Green Intensity');
-title('Green Channel Intensity Across Frames');
+xlabel('Frame index');
+ylabel('Green intensity');
+title('Green channel intensity');
 grid on;
 % Threshold for identifying laser frames (adjust as needed)
 threshold = 1.5 * median(greenIntensity(greenIntensity > 0)); % Example: 1.5x median as a threshold

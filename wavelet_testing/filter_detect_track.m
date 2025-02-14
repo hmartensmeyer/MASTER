@@ -19,6 +19,13 @@ end
 
 disp('Data read and converted to correct form.');
 
+%% MEAN SUBTRACTION TO REMOVE THE BLACK CEILING PANELS
+% Compute mean frame across time. The output is a double array.
+mean_frame = mean(eta, 3);  % 1080x1920 (double)
+
+% Convert eta to double, then subtract the mean frame.
+eta_meansub = double(eta) - mean_frame;
+
 %% II. Wavelet Analysis and Filtering
 % Parameters for wavelet filtering
 scales = 1:15;
@@ -35,11 +42,12 @@ filtered_dimples = zeros(x_dim, y_dim, numFrames);
 tracks = struct('id', {}, 'centroids', {}, 'frames', {}, 'active', {});
 nextTrackId = 1;
 baseYShift = 35;  % Base offset per time unit
+radiusFactor = 1.1; % Adjusts the factor for allowed distance from predicted position will be baseYShift*radiusFactor
 
-for t_index = 1:200
+for t_index = 1800:1900
     currentTime = times(t_index);
     disp(currentTime)
-    snapshot = eta(:, :, t_index);
+    snapshot = eta_meansub(:, :, t_index);
     
     % Wavelet transform and filtering (same as before)
     cwt_result = cwtft2(snapshot, 'Wavelet', 'mexh', 'Scales', scales);
@@ -74,7 +82,7 @@ for t_index = 1:200
             dt = currentTime - lastTime;
             % Predicted position: same x, y shifted by dt*baseYShift
             predicted = [tracks(j).centroids(end, 1), tracks(j).centroids(end, 2) + dt * baseYShift];
-            allowedDistance = dt * baseYShift;
+            allowedDistance = dt * baseYShift * radiusFactor;
             d = norm(centroids(i, :) - predicted);
             if d <= allowedDistance
                 costMatrix(i, j) = d;
@@ -106,6 +114,13 @@ for t_index = 1:200
             tracks(trackIdx).frames(end+1) = currentTime;
         end
     end
+
+    % ***** FIX: Mark tracks not updated in the current frame as inactive *****
+    for j = 1:length(tracks)
+        if tracks(j).active && tracks(j).frames(end) < currentTime
+             tracks(j).active = false;
+        end
+    end
     
     % Start new tracks for unassigned detections
     for i = 1:numDetections
@@ -125,6 +140,21 @@ for t_index = 1:200
             tracks(j).active = false;
         end
     end
+
+    % === Optional Visualization === %
+    figure(1); clf;
+    imagesc(wavelet_coefficients); colormap gray; hold on;
+    if ~isempty(centroids)
+        plot(centroids(:,1), centroids(:,2), 'ro', 'MarkerSize', 8);
+        for i = 1:numDetections
+            % Label the detection with its associated track ID
+            text(centroids(i,1)+2, centroids(i,2)+2, num2str(detectionTrackIDs(i)), ...
+                 'Color', 'y', 'FontSize', 12, 'FontWeight', 'bold');
+        end
+    end
+    title(['Time = ' num2str(currentTime)]);
+    drawnow;
+
 end
 
 %% V. Return Tracks with Lifetime Above a Threshold

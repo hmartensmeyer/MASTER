@@ -6,6 +6,9 @@ data = load ('..\data\filtered_gray_5000t_indices.mat');
 data_frame = data.filteredFramesGray;
 times = data.filteredTimeindeces;
 
+%%
+disp(times(1075:1100))
+
 %% Short snippet to get data on correct form
 [height, width] = size(data_frame{1});
 
@@ -19,6 +22,35 @@ for t = 1:numFrames
 end
 
 disp('Converted filteredFramesGray to 3D matrix.');
+
+%% MEAN SUBTRACTION TO REMOVE THE BLACK CEILING PANELS
+% Compute mean frame across time. The output is a double array.
+mean_frame = mean(eta, 3);  % 1080x1920 (double)
+
+% Convert eta to double, then subtract the mean frame.
+data_frame_demeaned = double(eta) - mean_frame;
+
+%% Display the first frame before and after mean subtraction for verification
+figure;  % Create a new figure window
+for t = 1000:1100
+    % Original frame
+    subplot(1,2,1);
+    imagesc(eta(:,:,t)); 
+    colormap gray; 
+    axis image off;
+    title(['Original Frame ' num2str(t)]);
+    
+    % Demeaned frame
+    subplot(1,2,2);
+    imagesc(data_frame_demeaned(:,:,t)); 
+    colormap gray; 
+    axis image off;
+    title(['Demeaned Frame ' num2str(t)]);
+    
+    drawnow;  % Update the figure window immediately
+    pause(0.1);  % Pause for 0.1 seconds (adjust as needed for your display speed)
+end
+
 
 %% Enhanced Tracking with Time-Dependent Y-Shift and Widened Search Radius
 % (Make sure that the variable "eta" is defined as a 3D array of snapshots
@@ -50,7 +82,7 @@ tracks = struct('id', {}, 'centroids', {}, 'frames', {}, 'active', {});
 nextTrackId = 1;
 
 % Loop over each snapshot using the provided "times" array
-for t_index = 1:99
+for t_index = 900:999
     currentTime = times(t_index);
     disp(currentTime)
     
@@ -171,19 +203,19 @@ for t_index = 1:99
         end
     end
 
-    % % === Optional Visualization === %
-    % figure(1); clf;
-    % imagesc(filtered_coefficients); colormap gray; hold on;
-    % if ~isempty(centroids)
-    %     plot(centroids(:,1), centroids(:,2), 'r*', 'MarkerSize', 8);
-    %     for i = 1:numDetections
-    %         % Label the detection with its associated track ID
-    %         text(centroids(i,1)+2, centroids(i,2)+2, num2str(detectionTrackIDs(i)), ...
-    %              'Color', 'y', 'FontSize', 12, 'FontWeight', 'bold');
-    %     end
-    % end
-    % title(['Time = ' num2str(currentTime)]);
-    % drawnow;
+    % === Optional Visualization === %
+    figure(1); clf;
+    imagesc(wavelet_coefficients); colormap gray; hold on;
+    if ~isempty(centroids)
+        plot(centroids(:,1), centroids(:,2), 'ro', 'MarkerSize', 8);
+        for i = 1:numDetections
+            % Label the detection with its associated track ID
+            text(centroids(i,1)+2, centroids(i,2)+2, num2str(detectionTrackIDs(i)), ...
+                 'Color', 'y', 'FontSize', 12, 'FontWeight', 'bold');
+        end
+    end
+    title(['Time = ' num2str(currentTime)]);
+    drawnow;
     
 end
 % After the loop, the structure "tracks" holds the full trajectories of all features.
