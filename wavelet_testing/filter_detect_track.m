@@ -43,6 +43,7 @@ tracks = struct('id', {}, 'centroids', {}, 'frames', {}, 'active', {});
 nextTrackId = 1;
 baseYShift = 35;  % Base offset per time unit
 radiusFactor = 1.1; % Adjusts the factor for allowed distance from predicted position will be baseYShift*radiusFactor
+maxSearchTime = 20;
 
 for t_index = 1800:1900
     currentTime = times(t_index);
@@ -55,9 +56,9 @@ for t_index = 1800:1900
     mask = wavelet_coefficients > W_thr;
     filtered_coefficients = wavelet_coefficients .* mask;
     connected_components = bwconncomp(mask);
-    region_props = regionprops(connected_components, 'Eccentricity', 'Solidity', 'Centroid');
+    region_props = regionprops(connected_components, 'Area', 'Eccentricity', 'Solidity', 'Centroid');
     validIdx = find([region_props.Eccentricity] < eccentricity_threshold & ...
-                      [region_props.Solidity] > solidity_threshold);
+                  [region_props.Solidity] > solidity_threshold);
     eccentric_regions = ismember(labelmatrix(connected_components), validIdx);
     filtered_by_eccentricity = wavelet_coefficients .* eccentric_regions;
     
@@ -77,15 +78,28 @@ for t_index = 1800:1900
     costMatrix = Inf(numDetections, numTracks);
     for i = 1:numDetections
         for j = 1:numTracks
-            if ~tracks(j).active, continue; end  % Skip dead tracks
+            if ~tracks(j).active
+                continue;  % Skip dead tracks
+            end
+            
             lastTime = tracks(j).frames(end);
             dt = currentTime - lastTime;
+            
+            % --- Skip if the time gap is more than maxSearchTime frames ---
+            if dt > maxSearchTime
+                continue;  % costMatrix stays Inf, effectively ignoring this track
+            end
+            
             % Predicted position: same x, y shifted by dt*baseYShift
-            predicted = [tracks(j).centroids(end, 1), tracks(j).centroids(end, 2) + dt * baseYShift];
+            predicted = [tracks(j).centroids(end,1), ...
+                         tracks(j).centroids(end,2) + dt*baseYShift];
             allowedDistance = dt * baseYShift * radiusFactor;
-            d = norm(centroids(i, :) - predicted);
+            
+            % Compute distance from detection to predicted position
+            d = norm(centroids(i,:) - predicted);
+            
             if d <= allowedDistance
-                costMatrix(i, j) = d;
+                costMatrix(i,j) = d;
             end
         end
     end
@@ -158,7 +172,7 @@ for t_index = 1800:1900
 end
 
 %% V. Return Tracks with Lifetime Above a Threshold
-lifetimeThreshold = 15;  % Adjust as needed (in number of frames)
+lifetimeThreshold = 5;  % Adjust as needed (in number of frames)
 numTracks = length(tracks);
 trackInfo = struct('id', {}, 'lifetime', {}, 'coordinates', {});
 for i = 1:numTracks
@@ -176,4 +190,92 @@ for i = 1:length(trackInfo)
     disp(trackInfo(i).coordinates);
     end
 end
+
+%% VI. Plot Tracks of Structures with Long Lifetime
+figure; hold on;
+colors = lines(numel(trackInfo));  % Generate distinct colors
+
+for i = 1:length(trackInfo)
+    if trackInfo(i).lifetime > lifetimeThreshold
+        coords = trackInfo(i).coordinates;
+        % Plot the track line and markers
+        plot(coords(:,1), coords(:,2), '-o', 'Color', colors(i,:), 'LineWidth', 2, ...
+            'DisplayName', sprintf('Track %d', trackInfo(i).id));
+        % Optionally mark start (green square) and end (red square)
+        %plot(coords(1,1), coords(1,2), 'gs', 'MarkerSize',10, 'MarkerFaceColor', 'g');
+        %plot(coords(end,1), coords(end,2), 'rs', 'MarkerSize',10, 'MarkerFaceColor', 'r');
+    end
+end
+
+title(sprintf('Tracks with Lifetime > %d Frames', lifetimeThreshold));
+xlabel('X coordinate'); ylabel('Y coordinate');
+legend('show');
+grid on; hold off;
+
+%% -- Example code to inspect track #19 in detail --
+
+% Suppose you want to inspect the centroids for track ID = 19
+targetTrackID = 136;
+
+% Find which element in 'tracks' has this ID
+trackIndex = find([tracks.id] == targetTrackID, 1);
+
+if isempty(trackIndex)
+    fprintf('No track found with ID = %d.\n', targetTrackID);
+else
+    % Extract the centroids and frame times
+    coords = tracks(trackIndex).centroids;   % Nx2 array, regionprops order = [x, y]
+    frameTimes = tracks(trackIndex).frames;  % Nx1 array of timestamps
+    
+    % Print them in a table to see the progression
+    T = table(frameTimes(:), coords(:,1), coords(:,2), ...
+        'VariableNames', {'FrameTime','X_Col','Y_Row'});
+    disp(T);
+    
+    % Plot the coordinates vs. frameTimes to visualize
+    figure('Name','Track 19 Inspection','Color','w');
+    
+    subplot(1,2,1);
+    plot(frameTimes, coords(:,1), '-o','LineWidth',2);
+    xlabel('Frame Time'); ylabel('X (Column)'); grid on;
+    title('X-Coordinate (Columns) vs. Time');
+    
+    subplot(1,2,2);
+    plot(frameTimes, coords(:,2), '-o','LineWidth',2);
+    xlabel('Frame Time'); ylabel('Y (Row)'); grid on;
+    title('Y-Coordinate (Rows) vs. Time');
+    
+    % If you suspect row/column confusion, you can swap coords(:,1) and coords(:,2)
+    % and re-plot to see if that yields more reasonable results:
+    % figure; plot(coords(:,2), coords(:,1), 'o-'); ...
+end
+
+%% Plot relative traveling position (y displacement relative to first detection) vs. relative time
+figure; hold on;
+colors = lines(length(trackInfo));  % Generate distinct colors
+
+for i = 1:length(trackInfo)
+    if trackInfo(i).lifetime > lifetimeThreshold
+        coords = trackInfo(i).coordinates;  % Each row: [x, y]
+        % Retrieve the timestamps. If not stored in trackInfo, get them from tracks:
+        if isfield(trackInfo(i), 'times')
+            timeStamps = trackInfo(i).times;
+        else
+            idx = find([tracks.id] == trackInfo(i).id, 1);
+            timeStamps = tracks(idx).frames;
+        end
+        % Compute relative time (time elapsed since the first detection)
+        relativeTime = timeStamps - timeStamps(1);
+        % Compute relative y displacement (y position relative to the first detection)
+        relativeY = coords(:,2) - coords(1,2);
+        
+        plot(relativeTime, relativeY, '-o', 'Color', colors(i,:), 'LineWidth', 2, ...
+             'DisplayName', sprintf('Dimple index: %d', trackInfo(i).id));
+    end
+end
+
+xlabel('Lifetime');
+ylabel('Relative displacement');
+%legend('show', 'Location','northwest');
+grid on; hold off;
 
