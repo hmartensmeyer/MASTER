@@ -1,5 +1,7 @@
+addpath('..\utils\readimx-v2.1.9-win64\readimx-v2.1.9-win64\')
+
 %% Load the first snapshot (change the file path as needed)
-filePath = fullfile('..\data\StereoPIV_MPd(2x64x64_50%ov)', 'B00006.vc7');
+filePath = fullfile('..\data\StereoPIV_MPd(2x64x64_50%ov)', 'B03594.vc7');
 data = readimx(filePath);
 
 %% Extract the first frame and its components
