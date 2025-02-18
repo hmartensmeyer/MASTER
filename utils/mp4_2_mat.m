@@ -3,8 +3,8 @@
 % File Output: MAT file containing cropped grayscale frames
 
 % Specify the input and output files
-inputFile = '..\data\ceiling_cropped_576.mp4'; % Replace with the actual file name
-outputFile = '..\data\ceiling_vid_576.mat'; % Output .mat file name
+inputFile = '..\data\SZ_VFD10p5Hz_TimeResolved_Run1_720p.mp4'; % Replace with the actual file name
+outputFile = '..\data\SZ_VFD10p5Hz_TimeResolved_Run1_1000frames.mat'; % Output .mat file name
 
 %% Create a VideoReader object
 videoReader = VideoReader(inputFile);
@@ -16,7 +16,7 @@ numFrames = floor(videoReader.Duration * videoReader.FrameRate);
 grayscaleFrames = cell(1, numFrames);
 
 % Loop through each frame of the video
-maxFrames = 1000; % Limit the number of frames processed
+maxFrames = 7229; % Limit the number of frames processed
 frameIndex = 1;
 
 %%

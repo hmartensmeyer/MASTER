@@ -1,11 +1,11 @@
 % Step 1: Load the video
-videoFile = '..\data\ceiling_gopro_cropped.mp4'; % Replace with your video file name
+videoFile = '..\data\SZ_VFD10p5Hz_TimeResolved_Run1_720p.mp4'; % Replace with your video file name
 vidObj = VideoReader(videoFile);
 
 
 %% Specify frame range to process
 startFrame = 1; % Start frame index
-endFrame = 1000; % End frame index
+endFrame = 7229; % End frame index
 frameRate = vidObj.FrameRate;
 % Calculate time to skip to the starting frame
 startTime = (startFrame - 1) / frameRate;
@@ -46,7 +46,7 @@ imagesc(frame);
 axis equal;
 axis tight;
 title(['Frame Index: ', num2str(startFrame + i - 1)]);
-pause(0.02); % Adjust pause duration for playback speed
+pause(0.5); % Adjust pause duration for playback speed
 end
 disp('Finished displaying selected frames.');
 
@@ -68,19 +68,20 @@ greenIntensity(i) = mean(greenChannel(:)); % Compute mean green intensity
 end
 % Replace NaN with 0 for plotting, if necessary
 greenIntensity(isnan(greenIntensity)) = 0;
-% Plot green channel intensity over frames
+%% Plot green channel intensity over frames
 figure;
 plot(1:numSelectedFrames, greenIntensity(1:numSelectedFrames), 'g', 'LineWidth', 1.5);
 xlabel('Frame index');
 ylabel('Green intensity');
 title('Green channel intensity');
+xlim([0,80]);
 grid on;
 % Threshold for identifying laser frames (adjust as needed)
-threshold = 1.5 * median(greenIntensity(greenIntensity > 0)); % Example: 1.5x median as a threshold
+threshold = 25;
 laserFrames = find(greenIntensity > threshold);
 disp(['Identified ', num2str(length(laserFrames)), ' laser-dominated frames.']);
-disp('Indices of laser frames:');
-disp(laserFrames);
+%disp('Indices of laser frames:');
+%disp(laserFrames);
 
 
 %% Step 3: Filter frames based on green intensity
@@ -113,8 +114,11 @@ for i = 1:length(filteredFrames)
     pause(0.05); % Adjust pause duration for playback speed
 end
 disp('Finished displaying filtered frames.');
+
+
 %% Step 4: Convert filtered frames to grayscale and save to a .mat file
 disp('Converting filtered frames to grayscale and saving to a .mat file...');
+startFrame = 1;
 % Retrieve the indices of the filtered frames
 filteredFrameIndices = find(greenIntensity < 25); % Get the indices of frames that meet the condition
 % Initialize a cell array for grayscale filtered frames
@@ -130,5 +134,5 @@ end
 filteredTimestamps = (startFrame + filteredFrameIndices - 1) / frameRate; % Convert frame indices to timestamps
 filteredTimeindeces = startFrame + filteredFrameIndices - 1; % Convert frame indices to timestamps
 % Save grayscale filtered frames and timestamps to a .mat file
-save('..\data\filtered_gray_5000t_indices.mat', 'filteredFramesGray', 'filteredTimeindeces', '-v7.3');
+save('..\data\SZ_VFD10p5Hz_TimeResolved_Run1_720p.mat', 'filteredFramesGray', 'filteredTimeindeces', "filteredTimestamps", '-v7.3');
 disp('Filtered grayscale frames and timestamps saved to filtered_video_gray.mat.');

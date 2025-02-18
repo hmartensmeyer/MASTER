@@ -1,6 +1,6 @@
 %% I. Read Video and Prepare Timestamps
 
-data = load ('..\data\filtered_gray_5000t_indices.mat');
+data = load ('..\data\SZ_VFD10p5Hz_TimeResolved_Run1_720p.mat');
 
 video = data.filteredFramesGray;
 times = data.filteredTimeindeces;
@@ -29,8 +29,8 @@ eta_meansub = double(eta) - mean_frame;
 %% II. Wavelet Analysis and Filtering
 % Parameters for wavelet filtering
 scales = 1:15;
-selected_scale = 15;
-W_thr = 90;
+selected_scale = 10;
+W_thr = 50;
 eccentricity_threshold = 0.85;
 solidity_threshold = 0.6;
 [x_dim, y_dim, ~] = size(eta);
@@ -45,7 +45,7 @@ baseYShift = 35;  % Base offset per time unit
 radiusFactor = 1.1; % Adjusts the factor for allowed distance from predicted position will be baseYShift*radiusFactor
 maxSearchTime = 20;
 
-for t_index = 1800:1900
+for t_index = 8
     currentTime = times(t_index);
     disp(currentTime)
     snapshot = eta_meansub(:, :, t_index);
@@ -158,6 +158,7 @@ for t_index = 1800:1900
     % === Optional Visualization === %
     figure(1); clf;
     imagesc(wavelet_coefficients); colormap gray; hold on;
+    colorbar;
     if ~isempty(centroids)
         plot(centroids(:,1), centroids(:,2), 'ro', 'MarkerSize', 8);
         for i = 1:numDetections
